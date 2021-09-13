@@ -8,8 +8,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"io/ioutil"
-	"log"
 	"os"
 	"time"
 
@@ -32,9 +32,24 @@ type (
 		TaskCount              int    `json:"task_count"`
 		TimeoutSeconds         int    `json:"timeout_seconds"`
 	}
+
+	flagEnvKey struct {
+		flag, envKey string
+	}
 )
 
 var (
+	taskCountFlagEnvKey              = flagEnvKey{envKey: "TASK_COUNT", flag: "taskCount"}
+	serviceSpecFlagEnvKey            = flagEnvKey{envKey: "SERVICE_SPEC", flag: "serviceSpec"}
+	ecsClusterArnFlagEnvKey          = flagEnvKey{envKey: "ECS_CLUSTER_ARN", flag: "ecsClusterArn"}
+	targetGroupArnFlagEnvKey         = flagEnvKey{envKey: "TARGET_GROUP_ARN", flag: "targetGroupArn"}
+	ecsClusterArnSsmParamFlagEnvKey  = flagEnvKey{envKey: "ECS_CLUSTER_ARN_SSM_PARAM", flag: "ecsClusterArnSsmParam"}
+	targetGroupArnSsmParamFlagEnvKey = flagEnvKey{envKey: "TARGET_GROUP_ARN_SSM_PARAM", flag: "targetGroupArnSsmParam"}
+	ecsServiceFamilyFlagEnvKey       = flagEnvKey{envKey: "ECS_SERVICE_FAMILY", flag: "ecsServiceFamily"}
+	ecsHealthCheckFlagEnvKey         = flagEnvKey{envKey: "ECS_HEALTH_CHECK", flag: "ecsHealthCheck"}
+	timeoutSecondsFlagEnvKey         = flagEnvKey{envKey: "TIMEOUT_SECONDS", flag: "timeoutSeconds"}
+	imageFlagEnvKey                  = flagEnvKey{envKey: "IMAGE", flag: "image"}
+
 	serviceSpecFile string
 
 	ecsClusterArn          string
@@ -45,7 +60,7 @@ var (
 	image                  string
 	ecsHealthCheck         bool
 	taskCount              int
-	timeOutSeconds         int
+	timeoutSeconds         int
 
 	validateEcsDeploymentCmd = &cobra.Command{
 		Use:   "validate-ecs-deployment",
@@ -64,15 +79,15 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 		err = json.Unmarshal(file, &spec)
 		handlerErrQuit(err)
 	} else {
-		spec.ECSClusterARN = ecsClusterArn
-		spec.ECSClusterARNSSMParam = ecsClusterArnSsmParam
-		spec.TaskCount = taskCount
-		spec.Image = image
-		spec.ECSHealthCheck = ecsHealthCheck
-		spec.TargetGroupARN = targetGroupArn
-		spec.TargetGroupARNSSMParam = targetGroupArnSsmParam
-		spec.ECSServiceFamily = ecsServiceFamily
-		spec.TimeoutSeconds = timeOutSeconds
+		spec.ECSClusterARN = viper.GetString(ecsClusterArnFlagEnvKey.envKey)
+		spec.ECSClusterARNSSMParam = viper.GetString(ecsClusterArnSsmParamFlagEnvKey.envKey)
+		spec.TaskCount = viper.GetInt(taskCountFlagEnvKey.envKey)
+		spec.Image = viper.GetString(ecsClusterArnSsmParamFlagEnvKey.envKey)
+		spec.ECSHealthCheck = viper.GetBool(ecsHealthCheckFlagEnvKey.envKey)
+		spec.TargetGroupARN = viper.GetString(targetGroupArnFlagEnvKey.envKey)
+		spec.TargetGroupARNSSMParam = viper.GetString(targetGroupArnSsmParamFlagEnvKey.envKey)
+		spec.ECSServiceFamily = viper.GetString(ecsServiceFamilyFlagEnvKey.envKey)
+		spec.TimeoutSeconds = viper.GetInt(timeoutSecondsFlagEnvKey.envKey)
 	}
 
 	if spec.TaskCount < 1 {
@@ -87,8 +102,8 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 	handlerErrQuit(err)
 
 	ssmClient := ssm.NewFromConfig(cfg)
-	spec.ECSClusterARN = getArn(spec.ECSClusterARN, spec.ECSClusterARNSSMParam, "ecsCluster", ssmClient)
-	spec.TargetGroupARN = getArn(spec.TargetGroupARN, spec.TargetGroupARNSSMParam, "targetGroup", ssmClient)
+	spec.ECSClusterARN = getArn(spec.ECSClusterARN, spec.ECSClusterARNSSMParam, ssmClient)
+	spec.TargetGroupARN = getArn(spec.TargetGroupARN, spec.TargetGroupARNSSMParam, ssmClient)
 
 	ecsClient := ecs.NewFromConfig(cfg)
 	lbClient := elasticloadbalancingv2.NewFromConfig(cfg)
@@ -112,10 +127,9 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 			break
 		}
 	}
-
 }
 
-func getArn(arn, ssmParam, name string, ssmClient *ssm.Client) string {
+func getArn(arn, ssmParam string, ssmClient *ssm.Client) string {
 	if arn == "" {
 		if ssmParam != "" {
 			param, err := ssmClient.GetParameter(context.TODO(), &ssm.GetParameterInput{Name: &ssmParam})
@@ -220,21 +234,36 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 
 func handlerErrQuit(err error) {
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err.Error())
 		os.Exit(1)
 	}
 }
 
 func init() {
+	viper.AutomaticEnv()
+
 	rootCmd.AddCommand(validateEcsDeploymentCmd)
-	validateEcsDeploymentCmd.Flags().StringVarP(&serviceSpecFile, "serviceSpec", "S", "", "File containing service validation specification")
-	validateEcsDeploymentCmd.Flags().StringVarP(&ecsClusterArn, "ecsClusterArn", "C", "", "ECS cluster ARN")
-	validateEcsDeploymentCmd.Flags().StringVar(&ecsClusterArnSsmParam, "ecsClusterArnSsmParam", "", "ECS cluster ARN SSM Param Name")
-	validateEcsDeploymentCmd.Flags().StringVarP(&ecsServiceFamily, "ecsServiceFamily", "F", "", "ECS service family")
-	validateEcsDeploymentCmd.Flags().StringVarP(&targetGroupArn, "targetGroupArn", "G", "", "Target group ARN for LB health check consideration")
-	validateEcsDeploymentCmd.Flags().StringVar(&targetGroupArnSsmParam, "targetGroupArnSsmParam", "", "Target group ARN for LB health check consideration SSM Param name")
-	validateEcsDeploymentCmd.Flags().StringVarP(&image, "image", "I", "", "Task container image")
-	validateEcsDeploymentCmd.Flags().BoolVarP(&ecsHealthCheck, "ecsHealthCheck", "T", false, "Consider ECS health check status")
-	validateEcsDeploymentCmd.Flags().IntVarP(&taskCount, "taskCount", "H", 0, "Expected task count")
-	validateEcsDeploymentCmd.Flags().IntVarP(&timeOutSeconds, "timeoutOutSeconds", "O", 300, "Expected task count")
+
+	validateEcsDeploymentCmd.Flags().StringVarP(&serviceSpecFile, serviceSpecFlagEnvKey.flag, "S", "", "File containing service validation specification")
+	validateEcsDeploymentCmd.Flags().StringVarP(&ecsClusterArn, ecsClusterArnFlagEnvKey.flag, "C", "", "ECS cluster ARN")
+	validateEcsDeploymentCmd.Flags().StringVar(&ecsClusterArnSsmParam, ecsClusterArnSsmParamFlagEnvKey.flag, "", "ECS cluster ARN SSM Param Name")
+	validateEcsDeploymentCmd.Flags().StringVarP(&ecsServiceFamily, ecsServiceFamilyFlagEnvKey.flag, "F", "", "ECS service family")
+	validateEcsDeploymentCmd.Flags().StringVarP(&targetGroupArn, targetGroupArnFlagEnvKey.flag, "G", "", "Target group ARN for LB health check consideration")
+	validateEcsDeploymentCmd.Flags().StringVar(&targetGroupArnSsmParam, targetGroupArnSsmParamFlagEnvKey.flag, "", "Target group ARN for LB health check consideration SSM Param name")
+	validateEcsDeploymentCmd.Flags().StringVarP(&image, imageFlagEnvKey.flag, "I", "", "Task container image")
+	validateEcsDeploymentCmd.Flags().BoolVarP(&ecsHealthCheck, ecsHealthCheckFlagEnvKey.flag, "T", false, "Consider ECS health check status")
+	validateEcsDeploymentCmd.Flags().IntVarP(&taskCount, taskCountFlagEnvKey.flag, "", 0, "Expected task count")
+	validateEcsDeploymentCmd.Flags().IntVarP(&timeoutSeconds, timeoutSecondsFlagEnvKey.flag, "O", 300, "Expected task count")
+
+	viper.BindPFlag(taskCountFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(taskCountFlagEnvKey.flag))
+	viper.BindPFlag(serviceSpecFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(serviceSpecFlagEnvKey.flag))
+	viper.BindPFlag(ecsClusterArnFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(ecsClusterArnFlagEnvKey.flag))
+	viper.BindPFlag(ecsClusterArnSsmParamFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(ecsClusterArnSsmParamFlagEnvKey.flag))
+	viper.BindPFlag(ecsServiceFamilyFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(ecsServiceFamilyFlagEnvKey.flag))
+	viper.BindPFlag(targetGroupArnFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(targetGroupArnFlagEnvKey.flag))
+	viper.BindPFlag(targetGroupArnSsmParamFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(targetGroupArnSsmParamFlagEnvKey.flag))
+	viper.BindPFlag(imageFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(imageFlagEnvKey.flag))
+	viper.BindPFlag(ecsHealthCheckFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(ecsHealthCheckFlagEnvKey.flag))
+	viper.BindPFlag(taskCountFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(taskCountFlagEnvKey.flag))
+	viper.BindPFlag(timeoutSecondsFlagEnvKey.envKey, validateEcsDeploymentCmd.Flags().Lookup(timeoutSecondsFlagEnvKey.flag))
 }

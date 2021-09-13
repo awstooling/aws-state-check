@@ -1,7 +1,7 @@
 # AWS State Check
 
 ## What?
-This is a CLI tool that uses the AWS API to check the state of AWS. Overtime the intention is to add more commands, currently the only command is [validate-ecs-deployment](src/cmd/validate_ecs_deployment.go)
+This is a CLI tool that uses the AWS API to check the state of AWS. Overtime the intention is to add more commands, currently the only command is [validate-ecs-deployment](cmd/validate_ecs_deployment.go)
 
 ### Validate ECS Deployment
 In a nutshell this command will poll AWS API until it can verify the deployment was successful or times out.  A successful verification results in exit code zero, all other results exit code 1. 
@@ -15,7 +15,7 @@ Where this is brittle:
 
 There probably other issues preventing this from having a wider application/much generic use.
 
-The best source of documentation for the command right now is the code itself: [validate-ecs-deployment](src/cmd/validate_ecs_deployment.go)
+The best source of documentation for the command right now is the code itself: [validate-ecs-deployment](cmd/validate_ecs_deployment.go)
 
 Run `awsstatecheck help validate-ecs-deployment` for flags help:
 
@@ -42,10 +42,13 @@ Global Flags:
       --viper   use Viper for configuration (default true)
 ```
 
-## Where
+## Binaries
 Grab binaries for common OS/ARCH combos on the GitHub release page.
 
-Get docker image here  
+## Docker 
+Get docker image here https://hub.docker.com/repository/docker/awstooling/aws-state-check
+
+Note that command flags are passed to the docker container as env vars in snake case, e.g. `--taskCount 2` > `-e TASK_COUNT=2`
 
 ### Dirty Laundry
 There are no tests! I will add tests on the next iteration, probably.
