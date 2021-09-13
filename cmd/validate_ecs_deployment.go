@@ -82,7 +82,7 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 		spec.ECSClusterARN = viper.GetString(ecsClusterArnFlagEnvKey.envKey)
 		spec.ECSClusterARNSSMParam = viper.GetString(ecsClusterArnSsmParamFlagEnvKey.envKey)
 		spec.TaskCount = viper.GetInt(taskCountFlagEnvKey.envKey)
-		spec.Image = viper.GetString(ecsClusterArnSsmParamFlagEnvKey.envKey)
+		spec.Image = viper.GetString(imageFlagEnvKey.envKey)
 		spec.ECSHealthCheck = viper.GetBool(ecsHealthCheckFlagEnvKey.envKey)
 		spec.TargetGroupARN = viper.GetString(targetGroupArnFlagEnvKey.envKey)
 		spec.TargetGroupARNSSMParam = viper.GetString(targetGroupArnSsmParamFlagEnvKey.envKey)
