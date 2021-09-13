@@ -90,6 +90,10 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 		spec.TimeoutSeconds = viper.GetInt(timeoutSecondsFlagEnvKey.envKey)
 	}
 
+	conf, _ := json.MarshalIndent(spec, " ", " ")
+	fmt.Println("Running ECS deployment validation for the following specification:")
+	fmt.Println(string(conf))
+
 	if spec.TaskCount < 1 {
 		handlerErrQuit(errors.New("TaskCount must be > 0"))
 	}
@@ -107,10 +111,6 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 
 	ecsClient := ecs.NewFromConfig(cfg)
 	lbClient := elasticloadbalancingv2.NewFromConfig(cfg)
-
-	conf, _ := json.MarshalIndent(spec, " ", " ")
-	fmt.Println("Running ECS deployment validation for the following specification:")
-	fmt.Println(string(conf))
 
 	timeout := time.Duration(spec.TimeoutSeconds) * time.Second
 	start := time.Now()
