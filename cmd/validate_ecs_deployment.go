@@ -82,6 +82,11 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 		handlerErrQuit(err)
 
 		err = json.Unmarshal(file, &spec)
+
+		conf, _ := json.MarshalIndent(spec, " ", " ")
+		fmt.Println("Loaded spec file as follows (to be pre-processed before validation):")
+		fmt.Println(string(conf))
+
 		handlerErrQuit(err)
 	} else {
 		spec.ECSClusterARN = viper.GetString(ecsClusterArnFlagEnvKey.envKey)
@@ -134,6 +139,10 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 }
 
 func validateSpec(spec serviceSpec) {
+	conf, _ := json.MarshalIndent(spec, " ", " ")
+	fmt.Println("Validating service spec:")
+	fmt.Println(string(conf))
+
 	if spec.TaskCount < 1 {
 		handlerErrQuit(errors.New("TaskCount must be > 0"))
 	}
@@ -144,10 +153,6 @@ func validateSpec(spec serviceSpec) {
 
 	if spec.Image == "" {
 		handlerErrQuit(errors.New("Image must be provided"))
-	}
-
-	if spec.TargetGroupARN == "" {
-		handlerErrQuit(errors.New("TargetGroupARN must be provided"))
 	}
 
 	if spec.ECSServiceFamily == "" {
@@ -188,7 +193,7 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 	containerIndex := 0
 	for _, td := range taskDescs.Tasks {
 		c := td.Containers[0]
-		fmt.Printf("TaskARN %v running Image %v\r\n", td.TaskArn, c.Image)
+		fmt.Printf("TaskARN %v running Image %v\r\n", *td.TaskArn, *c.Image)
 		if *c.Image == spec.Image {
 			containers[containerIndex] = c
 			containerIndex++

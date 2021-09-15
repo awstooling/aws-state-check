@@ -1,0 +1,9 @@
+{
+  "ecs_cluster_arn" : "ecs_cluster_arn",
+  "ecs_service_family" : "ecs_service_family",
+  "target_group_arn" : "target_group_arn",
+  "image" : "image",
+  "ecs_health_check" : true,
+  "task_count" : 2,
+  "timeout_seconds" : 600
+}
