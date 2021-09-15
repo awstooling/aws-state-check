@@ -124,6 +124,7 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 
 		if time.Now().Sub(start) > timeout {
 			fmt.Println("Timed out trying to validate deployment")
+			os.Exit(1)
 			break
 		}
 	}
