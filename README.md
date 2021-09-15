@@ -1,10 +1,10 @@
 # AWS State Check
 
 ## What?
-This is a CLI tool that uses the AWS API to check the state of AWS. Overtime the intention is to add more commands, currently the only command is [validate-ecs-deployment](cmd/validate_ecs_deployment.go)
+This is a CLI tool that uses the AWS API to check the state of AWS. Over time the intention is to add more commands; currently the only command is [validate-ecs-deployment](cmd/validate_ecs_deployment.go)
 
 ### Validate ECS Deployment
-In a nutshell this command will poll AWS API until it can verify the deployment was successful or times out.  A successful verification results in exit code zero, all other results exit code 1. 
+In a nutshell this command will poll AWS API until it can verify that a deployment was successful or times out.  A successful verification results in exit code zero, all other results exit code 1. 
 
 This command is coded to work for the first two uses I have, if you are lucky your use case will be a match, otherwise PR's welcome.  
 
