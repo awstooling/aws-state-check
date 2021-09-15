@@ -38,6 +38,11 @@ type (
 	}
 )
 
+const (
+	DefaultTimeoutSeconds      = 300
+	DefaultPollIntervalSeconds = 15
+)
+
 var (
 	taskCountFlagEnvKey              = flagEnvKey{envKey: "TASK_COUNT", flag: "taskCount"}
 	serviceSpecFlagEnvKey            = flagEnvKey{envKey: "SERVICE_SPEC", flag: "serviceSpec"}
@@ -90,12 +95,8 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 		spec.TimeoutSeconds = viper.GetInt(timeoutSecondsFlagEnvKey.envKey)
 	}
 
-	if spec.TaskCount < 1 {
-		handlerErrQuit(errors.New("TaskCount must be > 0"))
-	}
-
 	if spec.TimeoutSeconds == 0 {
-		spec.TimeoutSeconds = 300
+		spec.TimeoutSeconds = DefaultTimeoutSeconds
 	}
 
 	cfg, err := config.LoadDefaultConfig(context.TODO())
@@ -104,6 +105,8 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 	ssmClient := ssm.NewFromConfig(cfg)
 	spec.ECSClusterARN = getArn(spec.ECSClusterARN, spec.ECSClusterARNSSMParam, ssmClient)
 	spec.TargetGroupARN = getArn(spec.TargetGroupARN, spec.TargetGroupARNSSMParam, ssmClient)
+
+	validateSpec(spec)
 
 	ecsClient := ecs.NewFromConfig(cfg)
 	lbClient := elasticloadbalancingv2.NewFromConfig(cfg)
@@ -120,13 +123,35 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 			break
 		}
 
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * DefaultPollIntervalSeconds)
 
 		if time.Now().Sub(start) > timeout {
 			fmt.Println("Timed out trying to validate deployment")
 			os.Exit(1)
 			break
 		}
+	}
+}
+
+func validateSpec(spec serviceSpec) {
+	if spec.TaskCount < 1 {
+		handlerErrQuit(errors.New("TaskCount must be > 0"))
+	}
+
+	if spec.ECSClusterARN == "" {
+		handlerErrQuit(errors.New("ECSClusterARN must be provided"))
+	}
+
+	if spec.Image == "" {
+		handlerErrQuit(errors.New("Image must be provided"))
+	}
+
+	if spec.TargetGroupARN == "" {
+		handlerErrQuit(errors.New("TargetGroupARN must be provided"))
+	}
+
+	if spec.ECSServiceFamily == "" {
+		handlerErrQuit(errors.New("ECSServiceFamily must be provided"))
 	}
 }
 
@@ -153,8 +178,6 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 		return false
 	}
 
-	fmt.Printf("Number of tasks found in family: %v\r\n", len(tasks.TaskArns))
-
 	taskDescs, err := ecsClient.DescribeTasks(context.TODO(), &ecs.DescribeTasksInput{Tasks: tasks.TaskArns, Cluster: &spec.ECSClusterARN})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -164,15 +187,11 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 	containers := make([]types.Container, spec.TaskCount)
 	containerIndex := 0
 	for _, td := range taskDescs.Tasks {
-		for _, c := range td.Containers {
-			if *c.Image == spec.Image {
-				containers[containerIndex] = c
-				containerIndex++
-			}
-
-			if containerIndex == spec.TaskCount {
-				break
-			}
+		c := td.Containers[0]
+		fmt.Printf("TaskARN %v running Image %v\r\n", td.TaskArn, c.Image)
+		if *c.Image == spec.Image {
+			containers[containerIndex] = c
+			containerIndex++
 		}
 
 		if containerIndex == spec.TaskCount {
@@ -200,6 +219,7 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 			fmt.Println("Not all ECS health checks OK")
 			return false
 		}
+
 		fmt.Println("All ECS health checks OK")
 	}
 
