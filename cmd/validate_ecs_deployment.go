@@ -83,10 +83,6 @@ func validateEcsDeployment(cmd *cobra.Command, args []string) {
 
 		err = json.Unmarshal(file, &spec)
 
-		conf, _ := json.MarshalIndent(spec, " ", " ")
-		fmt.Println("Loaded spec file as follows (to be pre-processed before validation):")
-		fmt.Println(string(conf))
-
 		handlerErrQuit(err)
 	} else {
 		spec.ECSClusterARN = viper.GetString(ecsClusterArnFlagEnvKey.envKey)
@@ -192,6 +188,10 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 	containers := make([]types.Container, spec.TaskCount)
 	containerIndex := 0
 	for _, td := range taskDescs.Tasks {
+		if len(td.Containers) < 1 {
+			continue
+		}
+
 		c := td.Containers[0]
 		fmt.Printf("TaskARN %v running Image %v\r\n", *td.TaskArn, *c.Image)
 		if *c.Image == spec.Image {
