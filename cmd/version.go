@@ -13,7 +13,7 @@ var (
 )
 
 func version(cmd *cobra.Command, args []string) {
-	fmt.Println("0.1.3")
+	fmt.Println("0.1.4")
 }
 
 func init() {

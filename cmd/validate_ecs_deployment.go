@@ -188,19 +188,17 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 	containers := make([]types.Container, spec.TaskCount)
 	containerIndex := 0
 	for _, td := range taskDescs.Tasks {
-		if len(td.Containers) < 1 {
-			continue
-		}
+		if len(td.Containers) > 0 {
+			c := td.Containers[0]
+			fmt.Printf("TaskARN %v running Image %v\r\n", *td.TaskArn, *c.Image)
+			if *c.Image == spec.Image {
+				containers[containerIndex] = c
+				containerIndex++
+			}
 
-		c := td.Containers[0]
-		fmt.Printf("TaskARN %v running Image %v\r\n", *td.TaskArn, *c.Image)
-		if *c.Image == spec.Image {
-			containers[containerIndex] = c
-			containerIndex++
-		}
-
-		if containerIndex == spec.TaskCount {
-			break
+			if containerIndex == spec.TaskCount {
+				break
+			}
 		}
 	}
 
@@ -240,7 +238,7 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 			fmt.Printf("Target group ARN: %v health check status = %v\r\n", spec.TargetGroupARN, th.TargetHealth.State)
 			if th.TargetHealth.State == elb2types.TargetHealthStateEnumHealthy {
 				for _, c := range containers {
-					if *c.NetworkInterfaces[0].PrivateIpv4Address == *th.Target.Id {
+					if len(c.NetworkInterfaces) > 0 && *c.NetworkInterfaces[0].PrivateIpv4Address == *th.Target.Id {
 						healthyContainersCount++
 					}
 				}
