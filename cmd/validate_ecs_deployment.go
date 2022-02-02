@@ -174,8 +174,9 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 		fmt.Println(err.Error())
 		return false
 	}
-	if len(tasks.TaskArns) == 0 {
-		fmt.Printf("No tasks found in family %v\r\n", spec.ECSServiceFamily)
+	if len(tasks.TaskArns) != spec.TaskCount {
+		fmt.Printf("Incorrect number of tasks found in family %v\r\n", spec.ECSServiceFamily)
+		fmt.Printf("Found: %v, Expected: %v\r\n", len(tasks.TaskArns), spec.TaskCount)
 		return false
 	}
 
@@ -187,27 +188,21 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 
 	containers := make([]types.Container, spec.TaskCount)
 	containerIndex := 0
-	for _, td := range taskDescs.Tasks {
-		if len(td.Containers) > 0 {
-			c := td.Containers[0]
-			fmt.Printf("TaskARN %v running Image %v\r\n", *td.TaskArn, *c.Image)
+	for taskIndex, td := range taskDescs.Tasks {
+		if taskIndex != containerIndex {
+			fmt.Println("Task not running required image")
+			return false
+		}
+		for _, c := range td.Containers {
 			if *c.Image == spec.Image {
 				containers[containerIndex] = c
 				containerIndex++
-			}
-
-			if containerIndex == spec.TaskCount {
 				break
 			}
 		}
 	}
 
-	if containerIndex < spec.TaskCount {
-		fmt.Println("Required number of instances not found")
-		return false
-	}
-
-	fmt.Printf("Required number of instances found: %v\r\n", len(containers))
+	fmt.Printf("All tasks running required image\r\n")
 
 	allHealthChecksOk := true
 	if spec.ECSHealthCheck {
