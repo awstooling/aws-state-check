@@ -189,16 +189,17 @@ func doValidate(ecsClient *ecs.Client, lbClient *elasticloadbalancingv2.Client, 
 	containers := make([]types.Container, spec.TaskCount)
 	containerIndex := 0
 	for taskIndex, td := range taskDescs.Tasks {
-		if taskIndex != containerIndex {
-			fmt.Println("Task not running required image")
-			return false
-		}
 		for _, c := range td.Containers {
 			if *c.Image == spec.Image {
 				containers[containerIndex] = c
 				containerIndex++
 				break
 			}
+		}
+
+		if taskIndex != containerIndex-1 {
+			fmt.Println("Task not running required image")
+			return false
 		}
 	}
 
