@@ -1,4 +1,4 @@
-.PHONY: compile
+dock.PHONY: compile
 compile: compile_darwin compile_linux compile_windows compile_bsd
 
 compile_darwin:

@@ -139,10 +139,6 @@ func validateSpec(spec serviceSpec) {
 	fmt.Println("Validating service spec:")
 	fmt.Println(string(conf))
 
-	if spec.TaskCount < 1 {
-		handlerErrQuit(errors.New("TaskCount must be > 0"))
-	}
-
 	if spec.ECSClusterARN == "" {
 		handlerErrQuit(errors.New("ECSClusterARN must be provided"))
 	}
